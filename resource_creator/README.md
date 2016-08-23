@@ -14,9 +14,9 @@ Get the lattest version of the scripts as follows:
 
 ## Running the script:
   ```
-  python scripts/resource_creator/resource_creator.py {...}
-  ```
-
+python scripts/resource_creator/resource_creator.py {...}
+  
+  
 usage: resource_creator.py [-h] -H HOSTNAME -u USERNAME -t E_TYPE -id E_NAME
                            -i INPUT [-rc RESOURCE_COLLECTION] [-v]
 
@@ -38,7 +38,7 @@ optional arguments:
   -rc RESOURCE_COLLECTION, --resource_collection RESOURCE_COLLECTION
                         Resource collection name (optional)
   -v, --verbose         Display verbosal information (optional)
-
+  ```
 
 ##Questions/Comments?
 
