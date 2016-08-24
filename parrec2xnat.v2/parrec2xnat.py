@@ -28,10 +28,12 @@ def normalizeName(name):
 	'''Replace awkward chars for underscores'''
 	'''Returns a normalized name string'''
 	
-	name = name.replace(".", " ")
-	name = name.replace("^", " ")
-	name = name.replace(" ", "_")
-	return name
+	name = name.replace("/", " ")
+    name = name.replace(",", " ")
+    name = name.replace(".", " ")
+    name = name.replace("^", " ")
+    name = name.replace(" ", "_")
+    return name
 
 def locatePARRECfiles(fileName):
 	'''Locate the pairs of PAR and REC image files'''
