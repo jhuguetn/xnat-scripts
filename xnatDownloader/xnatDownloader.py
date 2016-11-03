@@ -5,8 +5,8 @@
 ####################################
 __author__      = 'Jordi Huguet'  ##
 __dateCreated__ = '20160510'      ##
-__version__     = '0.0.2'         ##
-__versionDate__ = '20160610'      ##
+__version__     = '0.1.0'         ##
+__versionDate__ = '20161101'      ##
 ####################################
 
 # xnatDownloader
@@ -88,6 +88,7 @@ if __name__ == "__main__":
     parser.add_argument('-r','--recons', dest="recons", action='store_true', default=False, help='Download reconstructed/derived data (optional)', required=False)        
     parser.add_argument('-s','--scans', dest="scans", action='store_true', default=False, help='Download scanned/raw data (optional)', required=False)
     parser.add_argument('-f','--filter', dest="filter", help='Filter out scans by type', required=False)
+    parser.add_argument('-fp','--rich_filepath', dest="rich_filepath", action='store_true', default=False, help='Include subject in file paths', required=False)
     parser.add_argument('-v','--verbose', dest="verbose", action='store_true', default=False, help='Display verbosal information (optional)', required=False)
     
     args = vars(parser.parse_args())
@@ -114,6 +115,13 @@ if __name__ == "__main__":
             experiments = get_mrsession_list(args['hostname'], args['project'])
             
             for expt in experiments:
+                
+                working_dir = args['outdir']
+                if args['rich_filepath'] :               
+                    working_dir = os.path.join(args['outdir'], expt['subject_label'])
+                    if not os.path.exists(working_dir):
+                        os.makedirs(working_dir)
+                
                 if args['scans'] :
                     try:
                         scans_list = None
@@ -123,12 +131,12 @@ if __name__ == "__main__":
                             for scan in scans_data :
                                 if args['filter'].lower() in scans_data[scan]['type'].lower() :
                                     scans_list.append(scan) 
-                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'scans', args['outdir'], scans_list)
+                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'scans', working_dir, scans_list)
                     except xnatLibrary.XNATException as xnatErr:
                         print '[Warning] XNAT-related issue at retrieving scan resource files for %s. %s' %(expt['label'],xnatErr)  
                 if args['recons'] :
                     try:
-                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'reconstructions', args['outdir'])
+                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'reconstructions', working_dir)
                     except xnatLibrary.XNATException as xnatErr:
                         print '[Warning] XNAT-related issue at retrieving reconstruction resource files for %s. %s' %(expt['label'],xnatErr)  
                 
