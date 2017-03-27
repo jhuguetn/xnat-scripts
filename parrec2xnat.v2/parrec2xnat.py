@@ -5,8 +5,8 @@
 ####################################
 __author__      = 'Jordi Huguet'  ##
 __dateCreated__ = '20131211'      ##
-__version__     = '2.0.2'         ##
-__versionDate__ = '20151204'      ##
+__version__     = '2.0.4'         ##
+__versionDate__ = '20170328'      ##
 ####################################
 
 #main packages
@@ -145,7 +145,7 @@ def uploadParrecScan(XNAT,project,subject,session,scanID,fileName):
 	
 	# Check if scan exists and connectivity is unavailable	
 	if XNAT.resourceExist(scanURL).status != 200 :
-		raise xnatLibrary.XNATException('XNAT Scan %s is unreachable at: %s' % (sessionName, scanURL) )
+		raise xnatLibrary.XNATException('XNAT Scan %s is unreachable at: %s' % (session, scanURL) )
 	
 	#Otherwise, lets create it!
 	#Create and convert the dict (metadata) to a encoded string suitable for the HTTP request
@@ -196,7 +196,7 @@ def uploadNiftiScan(XNAT,project,subject,session,scanID,fileSet):
 		
 	# Check if scan exists and connectivity is unavailable	
 	if XNAT.resourceExist(scanURL).status != 200 :
-		raise xnatLibrary.XNATException('XNAT Scan %s is unreachable at: %s' % (sessionName, scanURL) )
+		raise xnatLibrary.XNATException('XNAT Scan %s is unreachable at: %s' % (session, scanURL) )
 		
 	#Otherwise, lets create it!
 	#Create and convert the dict (metadata) to a encoded string suitable for the HTTP request
@@ -373,7 +373,7 @@ def main(XNAT,args):
 					
 					dictScan['xnat:mrScanData/parameters/fov/x'] = int(dict['fov'][0])
 					dictScan['xnat:mrScanData/parameters/fov/y'] = int(dict['fov'][1])
-					dictScan['xnat:mrScanData/parameters/tr'] = dict['repetition_time']
+					dictScan['xnat:mrScanData/parameters/tr'] = dict['repetition_time'][0]
 					
 					if hPARREC is not None: 
 						voxel = hPARREC.get_voxel_size()
@@ -386,7 +386,6 @@ def main(XNAT,args):
 					dictScan['xnat:mrScanData/parameters/te'] = array['echo_time'][0]
 					dictScan['xnat:mrScanData/parameters/ti'] = array['Inversion delay'][0]
 					dictScan['xnat:mrScanData/parameters/flip'] = int(array['image_flip_angle'][0])
-					dictScan['xnat:mrScanData/parameters/ti'] = array['Inversion delay'][0]
 					
 					#Assumption: if a scan has to be created, data quality will be set to 'usable'
 					dictScan['quality'] = 'usable'
