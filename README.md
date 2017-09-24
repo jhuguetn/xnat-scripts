@@ -1,6 +1,6 @@
 # xnat-scripts
 
-##Synopsis
+## Synopsis
 XNAT-related client scripts public repository
 * resource_creator :: XNAT resources management
 * nifti2xnat :: ingest NIFTI formatted data into XNAT
@@ -9,8 +9,8 @@ XNAT-related client scripts public repository
 * projectCleanUp :: clean undesired data from XNAT project (virtual PACS project)
 * xnatDownloader :: download raw/derived data from XNAT, batch mode
 
-##Contributors
+## Contributors
 Jordi Huguet, Department of Neuroradiology & Brain Imaging Centre, AMC-UvA Amsterdam
 
-##License
+## License
 This work is licensed under the terms of the GNU GPLv3 license.
