@@ -128,6 +128,9 @@ if __name__=="__main__" :
             # rationale: When a project's pipeline is configured to auto-launch, its ID is replaced automagically by an awkward alias (stepID)
             pipeline_alias = get_pipeline_alias(xnat_connection, args['project'], args['pipeline'])
             
+            if args['verbose'] and (args['pipeline'] != pipeline_alias) : 
+                print '[Info] Pipeline %s internally renamed as %s (autorun mode enabled), using pipeline alias name (%s) instead' %(args['pipeline'],pipeline_alias,pipeline_alias)
+            
             sessionList = csv_parser(args['input_csv'])
             i = 0
             for session in sessionList :
