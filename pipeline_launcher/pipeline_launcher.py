@@ -1,20 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
-# Created 2014-11-25, Jordi Huguet, Dept. Radiology AMC Amsterdam
+# Created  2014-11-25, Jordi Huguet, Dept. Radiology AMC Amsterdam
+# Modified 2018-02-28, Jordi Huguet, BarcelonaBeta Brain Research Centre
 
 ####################################
 __author__      = 'Jordi Huguet'  ##
 __dateCreated__ = '20141125'      ##
-__version__     = '1.1'           ##
-__versionDate__ = '20160621'      ##
+__version__     = '1.2.1'         ##
+__versionDate__ = '20180228'      ##
 ####################################
 
 # pipeline_launcher.py
 # Script for triggering XNAT pipeline jobs (batch mode)
 #
-# TO DO:
-# - ...
-# - 
 
 import os
 import sys
@@ -24,6 +22,38 @@ import xnatLibrary
 import datetime
 import csv
 import time
+import xml.etree.ElementTree as etree
+
+
+def get_project_archive_spec(xnat_connection, project):
+    ''' Given a project, get extended archive-related information '''    
+    '''Returns an xml object '''
+    
+    #compose the URL for the REST call
+    URL = xnat_connection.host + '/data/projects/%s/archive_spec' %project
+    #do the HTTP query to get the remote XML resource
+    proj_arch_info_xml,_ = xnat_connection.getResource(URL)    
+    
+    return proj_arch_info_xml
+
+    
+def get_pipeline_alias(xnat_connection,project_name,pipeline_name):
+    ''' Get project's archive_spec metainfo from XNAT and parse the project's available pipeline names VERSUS stepIds'''    
+    '''Returns a pipeline stepId (pipeline runnable alias) for the given pipeline identified by pipeline_name '''
+    
+    # get the project archive-specs as an XML object
+    xml_output = get_project_archive_spec(xnat_connection, project_name)
+    
+    #parse the output results as an XML object
+    xml_object = etree.fromstring(xml_output)
+    namespace = { 'archive' : 'http://nrg.wustl.edu/arc' }
+    
+    # traverse XML subelements named 'pipeline' and fetch pipeline names VS stepId attribute 
+    # XNAT Pipeline Engine uses the later as actual names/ids for launching a pipeline programatically
+    pipeline_list = xml_object.findall('archive:pipelines/archive:descendants/archive:descendant/archive:pipeline', namespace)
+    pipeline_aliases = {(item.find('archive:name',namespace)).text : item.attrib['stepId'] for item in pipeline_list}
+    
+    return pipeline_aliases[pipeline_name]
 
 
 def csv_parser(filename, header=None):
@@ -49,7 +79,7 @@ def csv_parser(filename, header=None):
             sessionList.append(line[mIndex])            
         
     return sessionList
-
+    
     
 ###                                                    ###
 # Top-level script environment                           #
@@ -58,17 +88,18 @@ def csv_parser(filename, header=None):
 if __name__=="__main__" :
     print ''
     
-    parser = argparse.ArgumentParser(description='%s :: Parse data from an OpenClinica CRF XML object and populate XNAT datatyped instances of that CRF' %os.path.basename(sys.argv[0]))
-    parser.add_argument('-H','--host', dest="hostname", help='full XNAT URL (e.g. https://myHost.url/xnat)', required=True)
+    parser = argparse.ArgumentParser(description='%(prog)s :: Launch a processing pipeline over a set of XNAT experiments (batch mode)')
+    parser.add_argument('-H','--host', dest="hostname", help='Full XNAT URL (e.g. https://myHostname.url/xnat)', required=True)
     parser.add_argument('-u','--user', dest="username", help='XNAT username (will be prompted for password)', required=True)
     parser.add_argument('-pr','--project', dest="project", help='XNAT project ID', required=True)
-    parser.add_argument("-pi","--pipeline", dest="pipeline", help="Datatype ID in XNAT", required=True)
-    parser.add_argument("-i","--inputCSV", dest="input_csv", help="expermient list CSV file", required=True)
+    parser.add_argument('-pi','--pipeline', dest="pipeline", help="Pipeline name to be executed", required=True)
+    parser.add_argument('-i','--inputCSV', dest="input_csv", help="Expermient list (CSV file)", required=True)
     parser.add_argument('-v','--verbose', dest="verbose", action='store_true', default=False, help='Display verbosal information(optional)', required=False)
+    parser.add_argument('--version', action='version', version='%(prog)s v{}'.format(__version__))
     
     args = vars(parser.parse_args())
     
-    #Waiting time between each pipeline is launched not to overstress the system when many jobs are triggered
+    #Waiting time between each pipeline job is launched not to overstress the system when many jobs are triggered at once
     #sleep_timespan = 1800 #set to 1/2 hour
     sleep_timespan = 300 #set to 5 mins.
     
@@ -82,24 +113,29 @@ if __name__=="__main__" :
     
     try:         
         # connect to XNAT
-        with xnatLibrary.XNAT(args['hostname'],usr_pwd) as XNAT :
-            if args['verbose'] : print '[Info] session %s opened' %XNAT.jsession
+        with xnatLibrary.XNAT(args['hostname'],usr_pwd) as xnat_connection :
+            if args['verbose'] : print '[Info] session opened (%s)' %xnat_connection.host
             
-            projects = XNAT.getProjects()
+            projects = xnat_connection.getProjects()
             if args['project'] not in projects.keys() :
                 raise Exception('Project %s not found or unaccessible' %args['project'])
             
-            pipelines = XNAT.getProjectPipelines(args['project'])                
+            pipelines = xnat_connection.getProjectPipelines(args['project'])                
             if args['pipeline'] not in pipelines.keys() :
                 raise Exception('Pipeline %s not found or unaccessible in the given context (project: %s)' %(args['pipeline'],args['project']))
                 
+            # get the valid pipeline name alias (stepID) for properly launching the pipeline via REST API call
+            # rationale: When a project's pipeline is configured to auto-launch, its ID is replaced automagically by an awkward alias (stepID)
+            pipeline_alias = get_pipeline_alias(xnat_connection, args['project'], args['pipeline'])
+            
             sessionList = csv_parser(args['input_csv'])
             i = 0
             for session in sessionList :
                 i += 1
-                sURL = XNAT.host + '/data/archive/experiments/' + session
-                if XNAT.resourceExist(sURL).status == 200 :
-                    response = XNAT.launchPipeline(args['project'], session, args['pipeline'])
+                sURL = xnat_connection.host + '/data/archive/experiments/' + session
+                if xnat_connection.resourceExist(sURL).status == 200 :
+                    #response = xnat_connection.launchPipeline(args['project'], session, args['pipeline'])
+                    response = xnat_connection.launchPipeline(args['project'], session, pipeline_alias)
                     time.sleep(sleep_timespan)
                     #if i%1 == 0 :
                     #    time.sleep(sleep_timespan)
@@ -107,9 +143,10 @@ if __name__=="__main__" :
                 else :
                     if args['verbose'] : print '[Warning] XNAT image session #"%s" not found' %session                                                    
                         
-            if args['verbose'] : print '[Info] session %s closed' %XNAT.jsession
+            if args['verbose'] : print '[Info] session closed (%s)' %xnat_connection.host
     
     except xnatLibrary.XNATException as xnatErr:
         print ' [Error] XNAT-related issue:', xnatErr
     except Exception as anyErr:
         print ' [Error] ', anyErr
+
