@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
 # Created 2016-05-10, Jordi Huguet, Dept. Radiology AMC Amsterdam
+# Modified 2018-03-21, Jordi Huguet, Neuroimaging ICT BBRC Barcelona
 
 ####################################
 __author__      = 'Jordi Huguet'  ##
 __dateCreated__ = '20160510'      ##
-__version__     = '0.1.0'         ##
-__versionDate__ = '20161101'      ##
+__version__     = '0.2.0'         ##
+__versionDate__ = '20180321'      ##
 ####################################
 
 # xnatDownloader
@@ -21,6 +22,7 @@ import traceback
 import urllib
 import zipfile
 import xnatLibrary
+import fnmatch
 
 
 # FUNCTIONS
@@ -40,23 +42,21 @@ def get_mrsession_list(xnatURL, project):
     return experiments
     
     
-def get_resource_zip(xnatURL, experimentUID, resource_type, output_location, scan_list=None):
+def get_resource_zip(xnatURL, experimentUID, resource_type, output_location, resource_list):
     ''' Helper. Download MRi session resources '''
     
-    if not resource_type in ['scans', 'reconstructions'] :
+    if not resource_type in ['scans', 'resources'] :
         raise Exception('Wrong or unexpected resource type ("%s")' %resource_type)
     
-    if scan_list is None :
-        scan_list = ['ALL'] 
-    elif len(scan_list) == 0 :
-        return
-        
-    scan_list_str = ','.join(scan_list)
+    resource_list_str = ','.join(resource_list)
     query_options = {}
     query_options['format'] = 'zip'
+    # uncomment to uniquely download NIFTI formatted scan files
+    #if resource_type == 'scans' :
+    #    query_options['file_format'] = 'NIFTI'
     query_options = urllib.urlencode(query_options)
     
-    URL = amcXNAT.normalizeURL(xnatURL) + '/data/experiments/%s/%s/%s/files' % (experimentUID,resource_type,scan_list_str)
+    URL = amcXNAT.normalizeURL(xnatURL) + '/data/experiments/%s/%s/%s/files' % (experimentUID,resource_type,resource_list_str)
     output, response = amcXNAT.getResource(URL, query_options)
     
     try:
@@ -85,9 +85,9 @@ if __name__ == "__main__":
     parser.add_argument('-p','--proj', dest="project", help='XNAT project ID', required=True)
     parser.add_argument('-u','--user', dest="username", help='XNAT username (will be prompted for password)', required=True)
     parser.add_argument('-o','--outdir', dest="outdir", help='Output directory where to store downloaded data', required=True)    
-    parser.add_argument('-r','--recons', dest="recons", action='store_true', default=False, help='Download reconstructed/derived data (optional)', required=False)        
+    parser.add_argument('-r','--resources', dest="resources", action='store_true', default=False, help='Download resources/derived data (optional)', required=False)
     parser.add_argument('-s','--scans', dest="scans", action='store_true', default=False, help='Download scanned/raw data (optional)', required=False)
-    parser.add_argument('-f','--filter', dest="filter", help='Filter out scans by type', required=False)
+    parser.add_argument('-f','--filter', dest="filter", default='*', help='Filter out scans/resources by type', required=False)
     parser.add_argument('-fp','--rich_filepath', dest="rich_filepath", action='store_true', default=False, help='Include subject in file paths', required=False)
     parser.add_argument('-v','--verbose', dest="verbose", action='store_true', default=False, help='Display verbosal information (optional)', required=False)
     
@@ -100,12 +100,13 @@ if __name__ == "__main__":
     
     try:         
         
-        if not args['recons'] and not args['scans']:
+        if not args['resources'] and not args['scans']:
             sys.exit(0)
         
         # check validity of output directory provided
         if not os.path.exists(args['outdir']) :
-            raise Exception('Output directory ("%s") not found' %args['outdir'])
+            os.mkdir(args['outdir'])
+            if args['verbose']: print '[Warning] Output directory ("%s") not found, creating it...' %args['outdir']
             
         with xnatLibrary.XNAT(args['hostname'],usr_pwd) as amcXNAT :
             if args['verbose']:
@@ -124,27 +125,38 @@ if __name__ == "__main__":
                 
                 if args['scans'] :
                     try:
-                        scans_list = None
-                        if args['filter'] :
-                            scans_list = []
-                            scans_data = amcXNAT.getScans(expt['xnat:mrsessiondata/id'])
-                            for scan in scans_data :
-                                if args['filter'].lower() in scans_data[scan]['type'].lower() :
-                                    scans_list.append(scan) 
-                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'scans', working_dir, scans_list)
+                        scans_data = amcXNAT.getScans(expt['xnat:mrsessiondata/id'])
+                        if scans_data is None :
+                            continue
+                        resource_list = [scan for scan in scans_data if fnmatch.fnmatch(scans_data[scan]['type'], args['filter'])]
+
+                        if len(resource_list) > 0 :
+                            get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'scans', working_dir, resource_list)
+                        # Just do nothing if no matching scans
+                        elif args['verbose'] :
+                            print '[Warning] No scans matching %s for %s' %(args['filter'],expt['label'])
                     except xnatLibrary.XNATException as xnatErr:
                         print '[Warning] XNAT-related issue at retrieving scan resource files for %s. %s' %(expt['label'],xnatErr)  
-                if args['recons'] :
+                if args['resources'] :
                     try:
-                        get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'reconstructions', working_dir)
+                        resources_data = amcXNAT.getDerivedResources(expt['xnat:mrsessiondata/id'])
+                        if resources_data is None :
+                            continue
+                        resource_list = [resources_data[resID]['label'] for resID in resources_data if fnmatch.fnmatch(resources_data[resID]['label'], args['filter'])]
+
+                        if len(resource_list) > 0:
+                            get_resource_zip(args['hostname'], expt['xnat:mrsessiondata/id'], 'resources', working_dir, resource_list)
+                        # Just do nothing if no matching resources
+                        elif args['verbose']:
+                            print '[Warning] No resources matching %s for %s' % (args['filter'], expt['label'])
                     except xnatLibrary.XNATException as xnatErr:
-                        print '[Warning] XNAT-related issue at retrieving reconstruction resource files for %s. %s' %(expt['label'],xnatErr)  
+                        print '[Warning] XNAT-related issue at retrieving resource files for %s. %s' %(expt['label'],xnatErr)
                 
             if args['verbose']:
                 print '[Info] XNAT session %s closed' %amcXNAT.jsession
     
     except xnatLibrary.XNATException as xnatErr:
-        print '[Error] XNAT-related issue:', xnatErr        
+        print '[Error] XNAT-related issue:', xnatErr
     
     except Exception as e:
         print '[Error]', e    
