@@ -44,4 +44,4 @@ A 'setup.py' script is included to wrap up the Python application as an stand-al
 
 ## Questions/Comments?
 
-Submit an issue, fork and/or PR. Alternatively, reach me at jhuguetn(at)google.com
+Submit an issue, fork and/or PR. Alternatively, reach me at jhuguetn(at)gmail.com
