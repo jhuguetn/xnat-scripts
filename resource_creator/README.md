@@ -1,11 +1,11 @@
-#resource_creator
+# resource_creator
 
-##Introduction
+## Introduction
 This script contains basic methods for the creation of resources in XNAT. Python 2.7.X is a prerequisite  for running the script. 
 
 XNAT is a data management system for research-oriented imaging data, more info [here](https://www.xnat.org/). File resources can be attached to different XNAT entities to link file-based data to them.
 
-##Installation procedure
+## Installation procedure
 
 Get the lattest version of the scripts as follows: 
   ```
@@ -40,6 +40,6 @@ optional arguments:
   -v, --verbose         Display verbosal information (optional)
   ```
 
-##Questions/Comments?
+## Questions/Comments?
 
 Submit an issue, fork and/or PR. Alternatively, reach me at j.huguet(at)amc.uva.nl
